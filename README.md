@@ -13,14 +13,14 @@ Shared Claude Code skills for the Squad team.
 ### One-line install (all skills)
 
 ```bash
-curl -sL https://raw.githubusercontent.com/jacob-thesqd/claude-skills/main/install.sh | bash
+curl -sL https://raw.githubusercontent.com/sis-thesqd/claude-skills/main/install.sh | bash
 ```
 
 ### Manual install (single skill)
 
 ```bash
 mkdir -p ~/.claude/commands
-curl -o ~/.claude/commands/squad-app-audit.md https://raw.githubusercontent.com/jacob-thesqd/claude-skills/main/skills/squad-app-audit.md
+curl -o ~/.claude/commands/squad-app-audit.md https://raw.githubusercontent.com/sis-thesqd/claude-skills/main/skills/squad-app-audit.md
 ```
 
 ## Usage
@@ -43,7 +43,7 @@ Claude will:
 Re-run the install script to get the latest versions:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/jacob-thesqd/claude-skills/main/install.sh | bash
+curl -sL https://raw.githubusercontent.com/sis-thesqd/claude-skills/main/install.sh | bash
 ```
 
 ## Adding New Skills
