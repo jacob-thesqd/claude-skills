@@ -286,9 +286,11 @@ This is your action plan. Start at the top and work your way down.
 
 ## Report Delivery
 
-1. Save the Markdown report to `[PROJECT_PATH]/AUDIT_REPORT.md`.
-2. Print the full report to stdout so the user can read it immediately.
-3. At the end, print a short summary: overall grade, biggest win, and biggest risk.
+1. **Create the `squadits` directory** at the project root (`[PROJECT_PATH]/squadits/`) if it doesn't already exist.
+2. **Determine the next audit number** by checking existing files in the `squadits` directory. Look for files matching the pattern `audit-[N].md` (e.g., `audit-1.md`, `audit-2.md`). The new audit should use the next available number. If the directory is empty or new, start with `audit-1.md`.
+3. **Save the Markdown report** to `[PROJECT_PATH]/squadits/audit-[N].md` (e.g., `squadits/audit-1.md`, `squadits/audit-2.md`, etc.).
+4. Print the full report to stdout so the user can read it immediately.
+5. At the end, print a short summary: overall grade, biggest win, biggest risk, and the file path where the report was saved.
 
 ---
 
@@ -299,7 +301,7 @@ When running this audit, follow this order:
 1. **Discovery phase**: Detect framework, router, monorepo, count files/lines. Report estimate and ask to continue.
 2. **Read phase**: Read all relevant source files systematically. Start with the project structure (directory listing), then read files grouped by category relevance.
 3. **Analysis phase**: For each category, collect findings and assign a grade.
-4. **Report phase**: Generate the Markdown report, save it, and print it.
+4. **Report phase**: Generate the Markdown report, save it to the `squadits` directory, and print it.
 
 **Important rules:**
 - Never modify any project files (read-only audit).
