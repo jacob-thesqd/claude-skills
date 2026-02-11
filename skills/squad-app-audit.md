@@ -9,6 +9,9 @@ When the user asks to "audit", "review", or "grade" a Next.js project, or explic
 ## Inputs
 - `PROJECT_PATH`: The root directory of the Next.js project to audit. Ask the user if not obvious.
 
+## Assumptions
+- All projects are deployed on **Vercel**. Do NOT flag anything that Vercel handles natively as a platform feature, including: rate limiting, DDOS protection, edge caching, CDN distribution, SSL/TLS, and serverless function isolation. Focus only on what the developer controls in their code.
+
 ## Pre-Audit: Project Discovery
 
 Before starting, gather project metadata:
@@ -161,6 +164,8 @@ Before starting, gather project metadata:
 
 ### Category 7: Security (Grade A–F)
 
+**Important: These apps are deployed on Vercel.** Vercel natively handles rate limiting, DDOS protection, edge caching, CDN, and SSL. Do NOT flag the absence of these as issues. Focus only on application-level security that the developer controls.
+
 **What to check:**
 
 **Secrets & Environment Variables:**
@@ -175,24 +180,19 @@ Before starting, gather project metadata:
 - Are API routes validating input and sanitizing data?
 - Are API routes checking authentication/authorization before processing requests?
 
-**DDOS & Rate Limiting:**
-- Are there any API routes that perform expensive operations (database writes, external API calls, file processing) without any rate limiting?
-- Are public-facing API routes (those that don't require auth) protected against abuse?
-- Are there any open endpoints that could be used to enumerate data (e.g., `/api/user/[id]` without auth)?
-- Is there any use of rate limiting middleware (e.g., `next-rate-limit`, custom middleware, or Vercel's built-in protections)?
-
 **Data Exposure:**
 - Are database queries returning more fields than needed (over-fetching)?
 - Are API responses including sensitive data that the client doesn't need?
 - Are error messages leaking internal details (stack traces, database schema, internal paths)?
 - Are there any `console.log` statements that output sensitive data?
+- Are there any open endpoints that could be used to enumerate data (e.g., `/api/user/[id]` without auth)?
 
 **Grading rubric:**
-- **A**: Secrets properly managed, all external calls go through API routes, rate limiting in place, no data leaks.
-- **B**: Good security posture with 1–2 minor gaps (e.g., missing rate limiting on one route).
+- **A**: Secrets properly managed, all external calls go through API routes, no data leaks.
+- **B**: Good security posture with 1–2 minor gaps (e.g., a missing auth check on one route).
 - **C**: Some security issues. A few direct client-side API calls or missing auth checks.
-- **D**: Multiple security concerns. Hardcoded secrets, exposed endpoints, no rate limiting.
-- **F**: Critical security failures. API keys in source, no API route usage, wide-open endpoints.
+- **D**: Multiple security concerns. Hardcoded secrets, exposed endpoints.
+- **F**: Critical security failures. API keys in source code, no API route usage, wide-open endpoints.
 
 ---
 
@@ -207,6 +207,7 @@ Generate a Markdown report with this structure:
 **Date:** [current date]
 **Framework:** Next.js [version] ([App Router / Pages Router / Both])
 **Structure:** [Single App / Monorepo]
+**Hosting:** Vercel
 **Scope:** [X] files | [Y] lines of code
 
 ---
@@ -307,3 +308,4 @@ When running this audit, follow this order:
 - Be specific in findings. Always include file paths and line numbers where possible.
 - Write all feedback in plain, beginner-friendly language. Avoid jargon. If you must use a technical term, explain it in parentheses.
 - Order feedback within each category from easiest fix to hardest fix.
+- Assume Vercel hosting. Do not flag the absence of rate limiting, DDOS protection, or other Vercel-native platform features.
