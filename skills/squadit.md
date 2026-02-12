@@ -1,26 +1,137 @@
 # Squadit — Next.js Project Audit Skill
 
 ## Purpose
-Perform a comprehensive audit of a Next.js project across 7 categories, grading each from A to F, and provide actionable feedback ordered from easiest to hardest fix in beginner-friendly language.
+Perform a comprehensive audit of a Next.js project across up to 8 categories, grading each from A to F, and provide actionable feedback ordered from easiest to hardest fix in beginner-friendly language.
 
 ## Trigger
 When the user runs `/squadit` or asks to "audit", "review", or "grade" a Next.js project.
 
 ## Inputs
 - `PROJECT_PATH`: The root directory of the Next.js project to audit. Ask the user if not obvious.
-- `CONTEXT` (optional): Free-form notes from the user to guide the audit. After confirming the project path, always ask: **"Any context I should know before auditing? For example: UI libraries in use, files/directories to ignore, recent migrations, known tech debt, or anything else."** If the user provides context, apply it throughout the audit. Examples of what context might include:
-  - UI component libraries (e.g., "We use shadcn/ui" — don't flag those component files for style inconsistency or refactoring)
-  - Files or directories to skip (e.g., "Ignore `src/generated/`" — exclude from all categories)
-  - Known tech debt (e.g., "We know the auth flow is messy, focusing on dashboard next" — still audit it but acknowledge it's known)
-  - Architecture decisions (e.g., "We intentionally co-locate components with routes" — don't flag as disorganized)
-  - In-progress migrations (e.g., "Migrating from Pages Router to App Router" — grade leniently on having both)
 
 ## Assumptions
 - All projects are deployed on **Vercel**. Do NOT flag anything that Vercel handles natively as a platform feature, including: rate limiting, DDOS protection, edge caching, CDN distribution, SSL/TLS, and serverless function isolation. Focus only on what the developer controls in their code.
 
-## Pre-Audit: Project Discovery
+---
 
-Before starting, gather project metadata:
+## Phase 1: Pre-Audit Interview
+
+Before auditing anything, conduct a short interactive interview with the user. The purpose is to understand the codebase through the developer's eyes so the audit is accurate, relevant, and doesn't flag intentional decisions as problems.
+
+**Important:** These questions should be answerable by a beginner. Use plain language. Do NOT dump all questions at once — ask them in 3 conversational rounds so it feels like a natural discussion, not a form.
+
+### Round 1: Project Basics
+
+After confirming `PROJECT_PATH`, silently scan the project to detect:
+- `package.json` dependencies (UI libraries, state management, data fetching, etc.)
+- Directory structure (top-level folders)
+- Router type (App Router vs Pages Router)
+- Config files present (tailwind.config, .eslintrc, tsconfig, etc.)
+
+Then present your findings and ask:
+
+> **Here's what I found in your project:**
+>
+> - **Framework:** Next.js [version] with [App Router / Pages Router / Both]
+> - **Styling:** [Tailwind CSS / CSS Modules / styled-components / etc.]
+> - **UI Library:** [shadcn/ui / MUI / Chakra / Mantine / Ant Design / Radix / none detected]
+> - **State Management:** [Zustand / Redux / Jotai / React Context only / none detected]
+> - **Data Fetching:** [React Query / SWR / tRPC / fetch only / none detected]
+> - **Other Notable Deps:** [list any significant ones like Framer Motion, Zod, Prisma, etc.]
+>
+> **Questions:**
+> 1. Does this look right? Anything I got wrong or missed?
+> 2. If I detected a UI library: **Are you actively using [library name] as your primary component library? Should I flag custom-built components that could be replaced with [library name] components instead?**
+>    If no UI library detected: **Are you using any UI component library I might have missed? Or is everything custom-built intentionally?**
+
+Wait for the user's response before continuing.
+
+### Round 2: Architecture Understanding
+
+After the silent scan, present what you believe the project's architecture pattern is:
+
+> **Here's how I understand your project structure:**
+>
+> ```
+> [Print the detected top-level directory tree, 2 levels deep]
+> ```
+>
+> **From what I can see, it looks like:**
+> - Components live in: `[detected path]`
+> - Pages/routes live in: `[detected path]`
+> - Utility/helper functions live in: `[detected path]`
+> - API routes live in: `[detected path]`
+> - Types/interfaces live in: `[detected path]`
+> - Hooks live in: `[detected path or "no dedicated directory detected"]`
+> - Services/API clients live in: `[detected path or "no dedicated directory detected"]`
+>
+> **Questions:**
+> 1. Is this how you intend the project to be organized? Or should certain things live somewhere else?
+> 2. Are there any directories I should **skip** during the audit? (e.g., generated files, legacy code you're planning to delete, experimental features)
+> 3. Are components meant to be **co-located with their routes** (inside `app/` folders), or kept in a **shared components directory**, or a **mix of both**? Which approach do you *want* to follow going forward?
+
+Wait for the user's response before continuing.
+
+### Round 3: Context & Expectations
+
+> **Last few questions before I start:**
+>
+> 1. Is there any **known tech debt** or messy areas I should be aware of? (I'll still audit them but I won't be surprised by them)
+> 2. Are you in the middle of any **migrations**? (e.g., Pages Router → App Router, JavaScript → TypeScript, one styling approach to another)
+> 3. Is there anything specific you're **most worried about** or want me to pay extra attention to?
+> 4. How would you describe the **stage** of this project? (e.g., early prototype, MVP, production app with real users, mature product)
+
+Wait for the user's response before continuing.
+
+### Storing Interview Answers
+
+After all 3 rounds, compile the user's answers into an `INTERVIEW_CONTEXT` object that is referenced throughout every audit category:
+
+```
+INTERVIEW_CONTEXT:
+  ui_library: [name or "none"]
+  ui_library_enforce: [true/false — should we flag custom components that could use the library?]
+  ui_library_components_available: [list of component names from the detected library, populated by reading the library's installed components or docs]
+  intended_architecture: [user's description of how they want things organized]
+  component_strategy: [co-located / shared / mixed — and which they want going forward]
+  skip_directories: [list of dirs to skip]
+  known_tech_debt: [user's notes]
+  active_migrations: [user's notes]
+  focus_areas: [what they care most about]
+  project_stage: [prototype / MVP / production / mature]
+  detected_deps: [full list of notable dependencies]
+  styling_approach: [Tailwind / CSS Modules / etc.]
+```
+
+---
+
+## Phase 2: UI Library Inventory (if applicable)
+
+If `ui_library_enforce` is `true`, before starting the category audits:
+
+1. **Identify installed UI library components.** For example:
+   - For **shadcn/ui**: Read the `components/ui/` directory (or wherever shadcn components are installed) to get the list of available components.
+   - For **MUI**: Check `@mui/material` imports used across the project to understand what's available.
+   - For **Chakra UI**: Check `@chakra-ui/react` usage patterns.
+   - For other libraries: Adapt accordingly.
+
+2. **Build a component map** of what the UI library provides. This will be used in the audit to suggest specific replacements. For example, if shadcn/ui is detected and has `Button`, `Dialog`, `Card`, `Input`, `Select`, `Table`, `Tabs`, `Badge`, `Alert`, `Toast`, `Dropdown Menu`, `Popover`, `Tooltip`, `Sheet`, `Accordion` installed — store all of these.
+
+3. **Scan for custom implementations** that duplicate UI library functionality:
+   - Custom button components when `Button` exists in the library
+   - Custom modal/dialog components when `Dialog` exists
+   - Custom dropdown components when `Select` or `DropdownMenu` exists
+   - Custom card wrappers when `Card` exists
+   - Custom input wrappers when `Input` exists
+   - Custom toast/notification systems when `Toast`/`Sonner` exists
+   - Custom tab components when `Tabs` exists
+   - Custom tooltip implementations when `Tooltip` exists
+   - Custom accordion/collapsible when `Accordion` exists
+   - Custom table components when `Table`/`DataTable` exists
+
+---
+
+## Phase 3: Project Discovery
 
 1. **Check for previous audits**
    - Look for a `squadits/` directory at the project root.
@@ -29,21 +140,19 @@ Before starting, gather project metadata:
    - Store all historical grades so you can show trends across multiple audits if more than one exists.
    - If no previous audits exist, note this is the first audit and skip comparison.
 
-2. **Detect framework version & router type**
-   - Read `package.json` for `next` version.
-   - Check for `app/` directory (App Router) and/or `pages/` directory (Pages Router). Report which is detected.
-3. **Detect monorepo vs single app**
+2. **Detect monorepo vs single app**
    - Look for `turbo.json`, `nx.json`, `pnpm-workspace.yaml`, or `workspaces` key in root `package.json`.
    - If monorepo, identify all Next.js apps within it and ask the user which to audit (or audit all).
-4. **Count project scope**
-   - Count total files (excluding `node_modules`, `.next`, `.git`, `dist`, `build`, `squadits`).
-   - Count total lines of code across `.ts`, `.tsx`, `.js`, `.jsx`, `.css`, `.scss`, `.json`, `.md` files (excluding `squadits/`).
+
+3. **Count project scope**
+   - Count total files (excluding `node_modules`, `.next`, `.git`, `dist`, `build`, `squadits`, and any user-specified skip directories).
+   - Count total lines of code across `.ts`, `.tsx`, `.js`, `.jsx`, `.css`, `.scss`, `.json`, `.md` files (excluding `squadits/` and skip directories).
    - Estimate audit time: ~1 minute per 500 files or 50,000 lines of code (whichever is larger), minimum 2 minutes.
    - Report the count and estimate to the user before proceeding. Ask for confirmation to continue.
 
 ---
 
-## Audit Categories
+## Phase 4: Audit Categories
 
 ### Category 1: Directory Organization (Grade A–F)
 
@@ -51,13 +160,15 @@ Before starting, gather project metadata:
 - Is there a clear separation of concerns? Look for directories like `components/`, `lib/`, `utils/`, `hooks/`, `services/`, `types/`, `constants/`, `styles/`, `public/`.
 - Are route files (`page.tsx`, `layout.tsx`, `route.ts`) only inside `app/` or `pages/`?
 - Are components co-located with their routes or organized in a shared directory? Either is fine but it should be consistent.
+- **Compare against the user's stated intended architecture from the interview.** Grade based on how well the codebase matches what the user *wants* it to be, not just general best practices.
 - Are there files in the project root that should be in subdirectories (e.g., utility files sitting in root)?
 - Is there a clear pattern for where API-related code lives vs UI code?
 - Are assets organized (images in `public/`, fonts properly placed)?
 - Are there empty directories or orphaned files that serve no purpose?
+- If the user stated a preference for co-located vs shared components, check if the codebase follows that preference consistently.
 
 **Grading rubric:**
-- **A**: Clean, predictable structure. A new developer could find any file in seconds.
+- **A**: Clean, predictable structure that matches the user's intended architecture. A new developer could find any file in seconds.
 - **B**: Good structure with minor inconsistencies (e.g., one-off files in odd places).
 - **C**: Some structure exists but it's inconsistent or partially organized.
 - **D**: Disorganized. Files scattered with no clear pattern.
@@ -209,6 +320,35 @@ Before starting, gather project metadata:
 
 ---
 
+### Category 8: UI Library Usage (Grade A–F)
+
+**Only include this category if `ui_library_enforce` is `true` in the interview context. If `false` or no UI library detected, skip this category entirely and keep the audit at 7 categories.**
+
+**What to check:**
+- Are there custom-built components that duplicate functionality already available in the installed UI library?
+- Is the UI library being used consistently across the app, or are some areas using it while others use raw HTML/custom components?
+- Are UI library components being used correctly (proper props, variants, composability)?
+- Are there wrapper components around UI library components that add no value (unnecessary abstraction)?
+- Are there areas where the UI library's theming/design tokens are being bypassed with hardcoded styles?
+- Is the UI library's form components being used for forms, or are there custom form inputs alongside library inputs?
+- Are the UI library's layout primitives being used, or is layout done with custom CSS that the library already handles?
+
+**For each custom component that should use the library instead, provide:**
+1. The file path of the custom component
+2. What it does (in plain English)
+3. The specific UI library component(s) that should replace it
+4. A brief example of what the replacement would look like
+5. Difficulty estimate (easy / medium / hard)
+
+**Grading rubric:**
+- **A**: UI library is used consistently everywhere it should be. No unnecessary custom components. Theming is respected.
+- **B**: Mostly consistent. 1–3 components could use the library but don't. Minor gaps.
+- **C**: Mixed usage. The UI library is used in some places but several custom components exist that duplicate its functionality.
+- **D**: The UI library is installed but largely unused. Most components are custom-built despite the library being available.
+- **F**: The UI library is installed but essentially ignored. Custom implementations everywhere.
+
+---
+
 ## Output Format
 
 Generate a Markdown report with this structure:
@@ -222,7 +362,27 @@ Generate a Markdown report with this structure:
 **Structure:** [Single App / Monorepo]
 **Hosting:** Vercel
 **Scope:** [X] files | [Y] lines of code
-**User Context:** [print the user's context verbatim here, or "None provided" if skipped]
+**UI Library:** [name and version, or "None"]
+**Project Stage:** [from interview]
+
+---
+
+## Interview Summary
+
+**User's Intended Architecture:**
+[Summary of how the user described their intended structure]
+
+**Known Tech Debt:**
+[What the user flagged, or "None noted"]
+
+**Active Migrations:**
+[What the user flagged, or "None"]
+
+**Focus Areas:**
+[What the user wants extra attention on, or "General audit"]
+
+**Skipped Directories:**
+[List, or "None"]
 
 ---
 
@@ -237,6 +397,9 @@ Generate a Markdown report with this structure:
 | Files Needing Refactoring | [A-F] | [one-line summary] |
 | App Performance | [A-F] | [one-line summary] |
 | Security | [A-F] | [one-line summary] |
+| UI Library Usage | [A-F] | [one-line summary] |
+
+[Omit the UI Library Usage row if category was skipped]
 
 ---
 
@@ -267,7 +430,43 @@ Generate a Markdown report with this structure:
 
 ---
 
-[...repeat for all 7 categories...]
+[...repeat for all categories...]
+
+---
+
+### 8. UI Library Usage — Grade: [X]
+
+[Only include if ui_library_enforce is true]
+
+#### Components You Already Have Available
+[List all installed UI library components detected in the project]
+
+#### Custom Components That Should Use [Library Name] Instead
+
+| Custom Component | File | What It Does | Suggested Replacement | Difficulty |
+|-----------------|------|--------------|----------------------|------------|
+| `CustomButton` | `components/Button.tsx` | Renders a styled button with variants | Use `<Button>` from shadcn/ui with `variant` prop | 🟢 Easy |
+| `ConfirmModal` | `components/ConfirmModal.tsx` | Confirmation dialog with overlay | Use `<AlertDialog>` from shadcn/ui | 🟡 Medium |
+| `CustomDropdown` | `components/Dropdown.tsx` | Dropdown menu with items | Use `<DropdownMenu>` from shadcn/ui | 🟡 Medium |
+
+#### Example Replacements
+
+For each flagged component, show a brief before/after:
+
+**Before (custom):**
+```tsx
+// components/CustomButton.tsx — 45 lines of custom code
+```
+
+**After (using [library]):**
+```tsx
+// Direct usage, no custom component needed
+import { Button } from "@/components/ui/button"
+
+<Button variant="destructive" size="sm" onClick={handleDelete}>
+  Delete
+</Button>
+```
 
 ---
 
@@ -296,25 +495,25 @@ Every instance where a client-side component calls an external API directly inst
 | Files Needing Refactoring | [prev grade] | [current grade] | [⬆️/➡️/⬇️] |
 | App Performance | [prev grade] | [current grade] | [⬆️/➡️/⬇️] |
 | Security | [prev grade] | [current grade] | [⬆️/➡️/⬇️] |
+| UI Library Usage | [prev grade] | [current grade] | [⬆️/➡️/⬇️] |
 | **Overall** | **[prev]** | **[current]** | **[⬆️/➡️/⬇️]** |
 
 ### What Improved
-- [List specific issues from the previous audit that have been fixed. Reference the original finding number/description so the user can see exactly what they addressed.]
+- [List specific issues from the previous audit that have been fixed.]
 
 ### What Regressed
-- [List any categories or specific areas that got worse since last audit. Be specific about what changed.]
+- [List any categories or specific areas that got worse since last audit.]
 
 ### Still Outstanding
-- [List the top issues from the previous audit that remain unfixed. These should be prioritized in the fix list below.]
+- [List the top issues from the previous audit that remain unfixed.]
 
 ### Audit History Trend
-[Only include if 3+ audits exist. Show the grade progression over time.]
+[Only include if 3+ audits exist.]
 
-| Audit | Date | Overall | Dir | Prof | Style | Redund | Refactor | Perf | Security |
-|-------|------|---------|-----|------|-------|--------|----------|------|----------|
-| #1 | [date] | [grade] | ... | ... | ... | ... | ... | ... | ... |
-| #2 | [date] | [grade] | ... | ... | ... | ... | ... | ... | ... |
-| #[N] | today | [grade] | ... | ... | ... | ... | ... | ... | ... |
+| Audit | Date | Overall | Dir | Prof | Style | Redund | Refactor | Perf | Security | UI Lib |
+|-------|------|---------|-----|------|-------|--------|----------|------|----------|--------|
+| #1 | [date] | [grade] | ... | ... | ... | ... | ... | ... | ... | ... |
+| #[N] | today | [grade] | ... | ... | ... | ... | ... | ... | ... | ... |
 
 ---
 
@@ -323,45 +522,4 @@ Every instance where a client-side component calls an external API directly inst
 This is your action plan. Start at the top and work your way down.
 
 ### 🟢 Quick Wins (< 5 minutes each)
-1. [fix description with file path]
-2. ...
-
-### 🟡 Medium Effort (15–60 minutes each)
-1. [fix description with file path]
-2. ...
-
-### 🔴 Major Refactors (1+ hours each)
-1. [fix description with file path]
-2. ...
-```
-
-## Report Delivery
-
-1. **Create the `squadits` directory** at the project root (`[PROJECT_PATH]/squadits/`) if it doesn't already exist.
-2. **Determine the next audit number** by checking existing files in the `squadits` directory. Look for files matching the pattern `audit-[N].md` (e.g., `audit-1.md`, `audit-2.md`). The new audit should use the next available number. If the directory is empty or new, start with `audit-1.md`.
-3. **Save the Markdown report** to `[PROJECT_PATH]/squadits/audit-[N].md` (e.g., `squadits/audit-1.md`, `squadits/audit-2.md`, etc.).
-4. Print the full report to stdout so the user can read it immediately.
-5. At the end, print a short summary: overall grade, biggest win, biggest risk, and the file path where the report was saved.
-
----
-
-## Execution Instructions
-
-When running this audit, follow this order:
-
-1. **History phase**: Check for previous audits in `squadits/` directory. Parse grades from the most recent audit to use as comparison baseline. If multiple audits exist, collect all historical grades for the trend table.
-2. **Context phase**: Ask the user for optional free-form context. If provided, note any files/directories to skip, libraries to account for, or leniency to apply. Carry this context into every subsequent phase.
-3. **Discovery phase**: Detect framework, router, monorepo, count files/lines (excluding any user-specified skip paths). Report estimate, mention how many previous audits were found, and ask to continue.
-4. **Read phase**: Read all relevant source files systematically. Start with the project structure (directory listing), then read files grouped by category relevance.
-5. **Analysis phase**: For each category, collect findings and assign a grade.
-6. **Comparison phase**: Compare current grades against previous audit. Identify fixed issues, regressions, and outstanding items.
-7. **Report phase**: Generate the Markdown report (including progress comparison), save it to the `squadits` directory, and print it.
-
-**Important rules:**
-- Never modify any project files (read-only audit).
-- Skip `node_modules`, `.next`, `.git`, `dist`, `build`, `coverage` directories.
-- For very large projects (2000+ files), sample representative files from each directory rather than reading every file. Note in the report that sampling was used.
-- Be specific in findings. Always include file paths and line numbers where possible.
-- Write all feedback in plain, beginner-friendly language. Avoid jargon. If you must use a technical term, explain it in parentheses.
-- Order feedback within each category from easiest fix to hardest fix.
-- Assume Vercel hosting. Do not flag the absence of rate limiting, DDOS protection, or other Vercel-native platform features.
+1
