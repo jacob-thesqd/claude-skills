@@ -18,6 +18,8 @@ When the user runs `/squadit` or asks to "audit", "review", or "grade" a Next.js
 
 Before auditing anything, conduct a short interactive interview with the user. The purpose is to understand the codebase through the developer's eyes so the audit is accurate, relevant, and doesn't flag intentional decisions as problems.
 
+**CRITICAL: Interactive Input Only.** Every question in this interview MUST be presented using Claude Code's interactive `input()` prompts with selectable options. NEVER ask freeform prose questions in the chat. All questions must be structured as single-select or multi-select choices. If the user needs to provide freeform context (like describing tech debt), present it as an optional follow-up input prompt, not a chat question. This is a strict requirement — do not fall back to conversational questions under any circumstances.
+
 **Important:** These questions should be answerable by a beginner. Use plain language. Do NOT dump all questions at once — ask them in 3 conversational rounds so it feels like a natural discussion, not a form.
 
 ### Round 1: Project Basics
@@ -28,8 +30,9 @@ After confirming `PROJECT_PATH`, silently scan the project to detect:
 - Router type (App Router vs Pages Router)
 - Config files present (tailwind.config, .eslintrc, tsconfig, etc.)
 
-Then present your findings and ask:
+Then present your findings as a summary and use interactive prompts for questions:
 
+Display the detection summary:
 > **Here's what I found in your project:**
 >
 > - **Framework:** Next.js [version] with [App Router / Pages Router / Both]
@@ -38,18 +41,27 @@ Then present your findings and ask:
 > - **State Management:** [Zustand / Redux / Jotai / React Context only / none detected]
 > - **Data Fetching:** [React Query / SWR / tRPC / fetch only / none detected]
 > - **Other Notable Deps:** [list any significant ones like Framer Motion, Zod, Prisma, etc.]
->
-> **Questions:**
-> 1. Does this look right? Anything I got wrong or missed?
-> 2. If I detected a UI library: **Are you actively using [library name] as your primary component library? Should I flag custom-built components that could be replaced with [library name] components instead?**
->    If no UI library detected: **Are you using any UI component library I might have missed? Or is everything custom-built intentionally?**
 
-Wait for the user's response before continuing.
+Then use interactive prompts:
+
+**Prompt 1** (single-select): "Does this detection look correct?"
+- Options: `Yes, looks right` / `No, I need to correct something`
+- If "No": follow up with `input()` asking what to correct
+
+**Prompt 2** (single-select, only if UI library detected): "Should I flag custom components that could use [library name] instead?"
+- Options: `Yes, flag them` / `No, I have reasons for custom components`
+
+**Prompt 2-alt** (single-select, only if NO UI library detected): "Are you using a UI component library I missed?"
+- Options: `No, everything is custom-built intentionally` / `Yes, I'm using one you missed`
+- If "Yes": follow up with `input()` asking which library
+
+Wait for all Round 1 responses before continuing.
 
 ### Round 2: Architecture Understanding
 
 After the silent scan, present what you believe the project's architecture pattern is:
 
+Display the structure summary:
 > **Here's how I understand your project structure:**
 >
 > ```
@@ -64,24 +76,44 @@ After the silent scan, present what you believe the project's architecture patte
 > - Types/interfaces live in: `[detected path]`
 > - Hooks live in: `[detected path or "no dedicated directory detected"]`
 > - Services/API clients live in: `[detected path or "no dedicated directory detected"]`
->
-> **Questions:**
-> 1. Is this how you intend the project to be organized? Or should certain things live somewhere else?
-> 2. Are there any directories I should **skip** during the audit? (e.g., generated files, legacy code you're planning to delete, experimental features)
-> 3. Are components meant to be **co-located with their routes** (inside `app/` folders), or kept in a **shared components directory**, or a **mix of both**? Which approach do you *want* to follow going forward?
 
-Wait for the user's response before continuing.
+Then use interactive prompts:
+
+**Prompt 3** (single-select): "Is this how you intend the project to be organized?"
+- Options: `Yes, that's the intended structure` / `No, some things should live elsewhere`
+- If "No": follow up with `input()` asking what should change
+
+**Prompt 4** (multi-select): "Any directories I should skip during the audit?"
+- Options: Auto-populate with detected top-level directories + `None, audit everything`
+- Allow multiple selections
+
+**Prompt 5** (single-select): "How do you organize components?"
+- Options: `Co-located with routes (inside app/ folders)` / `Shared components directory` / `Mix of both` / `Not sure yet`
+
+**Prompt 6** (single-select): "Which approach do you WANT to follow going forward?"
+- Options: `Co-located with routes` / `Shared components directory` / `Mix of both` / `Whatever you recommend`
+
+Wait for all Round 2 responses before continuing.
 
 ### Round 3: Context & Expectations
 
-> **Last few questions before I start:**
->
-> 1. Is there any **known tech debt** or messy areas I should be aware of? (I'll still audit them but I won't be surprised by them)
-> 2. Are you in the middle of any **migrations**? (e.g., Pages Router → App Router, JavaScript → TypeScript, one styling approach to another)
-> 3. Is there anything specific you're **most worried about** or want me to pay extra attention to?
-> 4. How would you describe the **stage** of this project? (e.g., early prototype, MVP, production app with real users, mature product)
+Use interactive prompts for all questions:
 
-Wait for the user's response before continuing.
+**Prompt 7** (single-select): "Any known tech debt or messy areas?"
+- Options: `No, nothing I'm aware of` / `Yes, let me describe it`
+- If "Yes": follow up with `input()` for description
+
+**Prompt 8** (single-select): "Are you in the middle of any migrations?"
+- Options: `No active migrations` / `Pages Router → App Router` / `JavaScript → TypeScript` / `Changing styling approach` / `Other migration`
+- If "Other": follow up with `input()` for description
+
+**Prompt 9** (multi-select): "What should I pay extra attention to?"
+- Options: `Performance` / `Security` / `Code organization` / `Consistency` / `Redundant code` / `Nothing specific, general audit`
+
+**Prompt 10** (single-select): "What stage is this project?"
+- Options: `Early prototype` / `MVP` / `Production app with real users` / `Mature product`
+
+Wait for all Round 3 responses before continuing.
 
 ### Storing Interview Answers
 
@@ -548,7 +580,7 @@ This is your action plan. Start at the top and work your way down.
 
 When running this audit, follow this order:
 
-1. **Interview phase**: Conduct the 3-round interactive interview. Do NOT proceed until the user has answered all rounds. Compile answers into `INTERVIEW_CONTEXT`.
+1. **Interview phase**: Conduct the 3-round interactive interview using ONLY interactive `input()` prompts with selectable options. NEVER ask freeform prose questions. Do NOT proceed until the user has answered all rounds. Compile answers into `INTERVIEW_CONTEXT`.
 2. **UI Library inventory phase**: If a UI library is confirmed, build the component map and scan for custom duplicates.
 3. **History phase**: Check for previous audits in `squadits/` directory. Parse grades from the most recent audit to use as comparison baseline.
 4. **Discovery phase**: Detect monorepo, count files/lines (excluding any user-specified skip paths). Report estimate, mention how many previous audits were found, and ask to continue.
@@ -556,6 +588,17 @@ When running this audit, follow this order:
 6. **Analysis phase**: For each category, collect findings and assign a grade. Always reference `INTERVIEW_CONTEXT` when grading — the user's stated intentions matter.
 7. **Comparison phase**: Compare current grades against previous audit. Identify fixed issues, regressions, and outstanding items.
 8. **Report phase**: Generate the Markdown report (including interview summary and progress comparison), save it to the `squadits` directory, and print it.
+
+### Context Management (CRITICAL)
+
+**Do NOT use parallel agents or spawn multiple sub-agents for audit categories.** This is the #1 cause of context blowout and failed audits. Follow these rules strictly:
+
+1. **Sequential execution only.** Run each audit category one at a time, in order (Category 1 → 2 → 3 → ... → 8). Never run categories in parallel.
+2. **Summarize as you go.** After completing each category's analysis, immediately compile the findings into the report format (grade + summary + detailed findings). Then mentally release the raw file contents — you only need the compiled findings going forward.
+3. **Batch file reads.** When reading source files, read them in batches grouped by relevance to the current category. Do not read the entire codebase upfront. Read what's needed for the current category, analyze it, compile findings, then move to the next category.
+4. **Large projects (2000+ files).** For large codebases, use sampling: read a representative subset of files per directory (e.g., 5-10 files per directory) rather than every file. Note sampling in the report.
+5. **If context is getting tight.** If you notice you're consuming significant context, prioritize completing the current category and compiling its findings before reading more files. A complete audit with sampled findings is better than a crashed audit with no output.
+6. **Never re-read files.** If you've already read a file for a previous category and noted relevant findings, reference your notes — don't re-read the file.
 
 **Important rules:**
 - Never modify any project files (read-only audit).
