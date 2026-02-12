@@ -16,15 +16,22 @@ When the user runs `/squadit` or asks to "audit", "review", or "grade" a Next.js
 
 Before starting, gather project metadata:
 
-1. **Detect framework version & router type**
+1. **Check for previous audits**
+   - Look for a `squadits/` directory at the project root.
+   - If it exists, read all `audit-*.md` files and parse the grade table from each one (the `| Category | Grade | Summary |` table).
+   - Identify the **most recent previous audit** (highest audit number) to use as the baseline for comparison.
+   - Store all historical grades so you can show trends across multiple audits if more than one exists.
+   - If no previous audits exist, note this is the first audit and skip comparison.
+
+2. **Detect framework version & router type**
    - Read `package.json` for `next` version.
    - Check for `app/` directory (App Router) and/or `pages/` directory (Pages Router). Report which is detected.
-2. **Detect monorepo vs single app**
+3. **Detect monorepo vs single app**
    - Look for `turbo.json`, `nx.json`, `pnpm-workspace.yaml`, or `workspaces` key in root `package.json`.
    - If monorepo, identify all Next.js apps within it and ask the user which to audit (or audit all).
-3. **Count project scope**
-   - Count total files (excluding `node_modules`, `.next`, `.git`, `dist`, `build`).
-   - Count total lines of code across `.ts`, `.tsx`, `.js`, `.jsx`, `.css`, `.scss`, `.json`, `.md` files.
+4. **Count project scope**
+   - Count total files (excluding `node_modules`, `.next`, `.git`, `dist`, `build`, `squadits`).
+   - Count total lines of code across `.ts`, `.tsx`, `.js`, `.jsx`, `.css`, `.scss`, `.json`, `.md` files (excluding `squadits/`).
    - Estimate audit time: ~1 minute per 500 files or 50,000 lines of code (whichever is larger), minimum 2 minutes.
    - Report the count and estimate to the user before proceeding. Ask for confirmation to continue.
 
@@ -267,6 +274,43 @@ Every instance where a client-side component calls an external API directly inst
 
 ---
 
+## Progress Since Last Audit
+
+[Only include this section if a previous audit exists in the `squadits/` directory. If this is the first audit, replace this section with: "🆕 **First audit** — no previous data to compare. Run `/squadit` again after making improvements to track progress."]
+
+**Comparing:** Audit [N] (today) vs Audit [N-1] ([date of previous audit])
+
+| Category | Previous | Current | Change |
+|----------|----------|---------|--------|
+| Directory Organization | [prev grade] | [current grade] | [⬆️ improved / ➡️ same / ⬇️ regressed] |
+| Code Professionalism | [prev grade] | [current grade] | [⬆️/➡️/⬇️] |
+| Consistency of Style | [prev grade] | [current grade] | [⬆️/➡️/⬇️] |
+| Redundant Code & Files | [prev grade] | [current grade] | [⬆️/➡️/⬇️] |
+| Files Needing Refactoring | [prev grade] | [current grade] | [⬆️/➡️/⬇️] |
+| App Performance | [prev grade] | [current grade] | [⬆️/➡️/⬇️] |
+| Security | [prev grade] | [current grade] | [⬆️/➡️/⬇️] |
+| **Overall** | **[prev]** | **[current]** | **[⬆️/➡️/⬇️]** |
+
+### What Improved
+- [List specific issues from the previous audit that have been fixed. Reference the original finding number/description so the user can see exactly what they addressed.]
+
+### What Regressed
+- [List any categories or specific areas that got worse since last audit. Be specific about what changed.]
+
+### Still Outstanding
+- [List the top issues from the previous audit that remain unfixed. These should be prioritized in the fix list below.]
+
+### Audit History Trend
+[Only include if 3+ audits exist. Show the grade progression over time.]
+
+| Audit | Date | Overall | Dir | Prof | Style | Redund | Refactor | Perf | Security |
+|-------|------|---------|-----|------|-------|--------|----------|------|----------|
+| #1 | [date] | [grade] | ... | ... | ... | ... | ... | ... | ... |
+| #2 | [date] | [grade] | ... | ... | ... | ... | ... | ... | ... |
+| #[N] | today | [grade] | ... | ... | ... | ... | ... | ... | ... |
+
+---
+
 ## Priority Fix List (All Categories Combined)
 
 This is your action plan. Start at the top and work your way down.
@@ -298,10 +342,12 @@ This is your action plan. Start at the top and work your way down.
 
 When running this audit, follow this order:
 
-1. **Discovery phase**: Detect framework, router, monorepo, count files/lines. Report estimate and ask to continue.
-2. **Read phase**: Read all relevant source files systematically. Start with the project structure (directory listing), then read files grouped by category relevance.
-3. **Analysis phase**: For each category, collect findings and assign a grade.
-4. **Report phase**: Generate the Markdown report, save it to the `squadits` directory, and print it.
+1. **History phase**: Check for previous audits in `squadits/` directory. Parse grades from the most recent audit to use as comparison baseline. If multiple audits exist, collect all historical grades for the trend table.
+2. **Discovery phase**: Detect framework, router, monorepo, count files/lines. Report estimate, mention how many previous audits were found, and ask to continue.
+3. **Read phase**: Read all relevant source files systematically. Start with the project structure (directory listing), then read files grouped by category relevance.
+4. **Analysis phase**: For each category, collect findings and assign a grade.
+5. **Comparison phase**: Compare current grades against previous audit. Identify fixed issues, regressions, and outstanding items.
+6. **Report phase**: Generate the Markdown report (including progress comparison), save it to the `squadits` directory, and print it.
 
 **Important rules:**
 - Never modify any project files (read-only audit).
